@@ -1,0 +1,244 @@
+#include <Arduino.h>
+#include <ESP8266WiFi.h>
+#include <ESP8266WebServer.h>
+#include <WiFiManager.h>
+#include <NTPClient.h>
+#include <WiFiUdp.h>
+
+#include "config.h"
+#include "nvs_store.h"
+#include "sd_card.h"
+#include "file_server.h"
+#include "file_scanner.h"
+#include "http_pusher.h"
+
+// =============================================================================
+// sleeplink-firmware-lite — ESP8285 Dual-Mode CPAP Bridge
+//
+// Mode 0 (File Server): ezShare-compatible HTTP file server on port 80
+// Mode 1 (Cloud Push):  Sync + chunked EDF upload to SleepLink API
+// =============================================================================
+
+static DeviceConfig g_config;
+static ESP8266WebServer g_web_server(FILE_SERVER_PORT);
+static WiFiManager g_wm;
+static WiFiUDP g_ntp_udp;
+static NTPClient g_ntp(g_ntp_udp, "pool.ntp.org", 0, 60000);
+
+// Mode selection via WiFiManager custom HTML radio buttons
+static WiFiManagerParameter g_mode_param(
+    "<br><hr><h3 style='color:#667EEA;'>Operating Mode</h3>"
+    "<label style='display:flex;align-items:center;gap:8px;margin:8px 0;cursor:pointer;'>"
+    "<input type='radio' name='opmode' value='0' checked> File Server (LAN polling)</label>"
+    "<label style='display:flex;align-items:center;gap:8px;margin:8px 0;cursor:pointer;'>"
+    "<input type='radio' name='opmode' value='1'> Cloud Push (autonomous upload)</label>"
+);
+
+static unsigned long g_last_push = 0;
+static uint8_t g_mode = OP_MODE_FILE_SERVER;
+static bool g_wifi_connected = false;
+
+// Device serial derived from chip ID
+static char g_serial[24];
+
+// ---------------------------------------------------------------------------
+// LED
+// ---------------------------------------------------------------------------
+static void led_on()  { digitalWrite(LED_PIN, LOW); }
+static void led_off() { digitalWrite(LED_PIN, HIGH); }
+static void led_blink(int ms) { led_on(); delay(ms); led_off(); }
+
+// ---------------------------------------------------------------------------
+// WiFiManager save callback
+// ---------------------------------------------------------------------------
+static void save_config_callback() {
+    // WiFiManager handles WiFi creds internally
+    // We just need to save the mode from the form
+    // WiFiManager doesn't parse custom HTML radio buttons, so we
+    // read it from the HTTP server post-save via the web server params
+    Serial.println(F("[main] WiFi config saved"));
+}
+
+// ---------------------------------------------------------------------------
+// Boot button — hold 5s to reset WiFi + config
+// ---------------------------------------------------------------------------
+static void check_boot_button() {
+    static unsigned long press_start = 0;
+    static bool was_pressed = false;
+
+    bool pressed = (digitalRead(BOOT_BUTTON_PIN) == LOW);
+
+    if (pressed && !was_pressed) {
+        press_start = millis();
+    } else if (pressed && was_pressed && (millis() - press_start > 5000)) {
+        Serial.println(F("[main] Boot button held 5s — resetting"));
+        for (int i = 0; i < 6; i++) { led_blink(100); delay(100); }
+        g_wm.resetSettings();
+        nvs_store_clear_wifi();
+        nvs_store_set_mode(OP_MODE_FILE_SERVER);
+        delay(500);
+        ESP.restart();
+    }
+
+    was_pressed = pressed;
+}
+
+// ---------------------------------------------------------------------------
+// Push cycle (Cloud Push mode) — scan + sync + upload + heartbeat
+// ---------------------------------------------------------------------------
+static void push_cycle() {
+    Serial.printf("[main] Push cycle (heap=%u)\n", ESP.getFreeHeap());
+
+    if (!sd_card_mount()) {
+        Serial.println(F("[main] SD mount failed, skipping push"));
+        return;
+    }
+
+    scan_result_t scan = file_scanner_scan();
+
+    if (scan.count == 0 && !scan.str_changed) {
+        sd_card_unmount();
+        http_pusher_heartbeat();
+        return;
+    }
+
+    http_pusher_sync(&scan);
+
+    for (int i = 0; i < scan.count; i++) {
+        pending_file_t &pf = scan.files[i];
+        if (pf.size == 0) continue;
+
+        if (http_pusher_upload_edf(&pf)) {
+            nvs_store_set_checkpoint(pf.date_folder, pf.filename, pf.size);
+        }
+        yield();
+    }
+
+    if (scan.str_changed) {
+        if (http_pusher_upload_str(scan.str_offset, scan.str_size)) {
+            nvs_store_set_str_size(scan.str_size);
+        }
+    }
+
+    sd_card_unmount();
+    http_pusher_heartbeat();
+
+    Serial.printf("[main] Push cycle done (heap=%u)\n", ESP.getFreeHeap());
+}
+
+// =============================================================================
+// setup
+// =============================================================================
+void setup() {
+    Serial.begin(115200);
+    delay(500);
+    Serial.printf("\n\n[main] SleepLink Firmware Lite %s\n", APP_VERSION);
+    Serial.printf("[main] Chip: ESP8285, Flash: %uKB, Free heap: %u\n",
+                  ESP.getFlashChipRealSize() / 1024, ESP.getFreeHeap());
+
+    // Generate serial from chip ID
+    snprintf(g_serial, sizeof(g_serial), "SL-%08X", ESP.getChipId());
+    Serial.printf("[main] Device serial: %s\n", g_serial);
+
+    // LED
+    pinMode(LED_PIN, OUTPUT);
+    led_off();
+    led_blink(200);
+
+    // Boot button
+    pinMode(BOOT_BUTTON_PIN, INPUT_PULLUP);
+
+    // EEPROM + config
+    nvs_store_init();
+    nvs_store_load(g_config);
+    g_mode = nvs_store_get_mode();
+
+    Serial.printf("[main] Saved mode: %s\n",
+                  g_mode == OP_MODE_CLOUD_PUSH ? "Cloud Push" : "File Server");
+
+    // SD card
+    sd_card_init();
+
+    // WiFiManager setup
+    g_wm.addParameter(&g_mode_param);
+    g_wm.setSaveConfigCallback(save_config_callback);
+    g_wm.setConfigPortalTimeout(WIFI_CONFIG_TIMEOUT);
+    g_wm.setDarkMode(true);
+
+    // Save mode from portal form on save
+    g_wm.setSaveParamsCallback([]() {
+        // Check if mode radio was submitted
+        if (g_wm.server->hasArg("opmode")) {
+            uint8_t mode = g_wm.server->arg("opmode").toInt();
+            nvs_store_set_mode(mode);
+            g_mode = mode;
+            Serial.printf("[main] Mode saved: %s\n",
+                          mode == OP_MODE_CLOUD_PUSH ? "Cloud Push" : "File Server");
+        }
+    });
+
+    // Generate AP name with chip ID suffix
+    char ap_name[32];
+    snprintf(ap_name, sizeof(ap_name), "%s-%04X",
+             WIFI_AP_NAME, (uint16_t)(ESP.getChipId() & 0xFFFF));
+
+    // Try to connect
+    g_wifi_connected = g_wm.autoConnect(ap_name);
+
+    if (g_wifi_connected) {
+        Serial.printf("[main] Connected to %s (%s)\n",
+                      WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
+
+        g_ntp.begin();
+        g_ntp.update();
+
+        if (g_mode == OP_MODE_CLOUD_PUSH) {
+            Serial.println(F("[main] Cloud Push mode"));
+            http_pusher_init(g_config.api_url, g_serial, DEVICE_SECRET);
+            Serial.printf("[main] Push interval: %ds\n", PUSH_INTERVAL_SEC);
+        } else {
+            Serial.println(F("[main] File Server mode (STA)"));
+            file_server_init(g_web_server);
+            g_web_server.begin();
+            Serial.printf("[main] File server at http://%s/\n",
+                          WiFi.localIP().toString().c_str());
+        }
+    } else {
+        Serial.println(F("[main] AP mode — file server on 192.168.4.1"));
+        file_server_init(g_web_server);
+        g_web_server.begin();
+    }
+
+    led_off();
+}
+
+// =============================================================================
+// loop
+// =============================================================================
+void loop() {
+    check_boot_button();
+
+    if (g_wifi_connected && g_mode == OP_MODE_CLOUD_PUSH) {
+        // Cloud Push mode
+        if (WiFi.isConnected()) {
+            g_ntp.update();
+
+            unsigned long now = millis();
+            if (now - g_last_push >= (unsigned long)PUSH_INTERVAL_SEC * 1000 ||
+                g_last_push == 0) {
+                g_last_push = now;
+                led_on();
+                push_cycle();
+                led_off();
+            }
+        } else {
+            led_blink(50);
+            delay(950);
+        }
+    } else {
+        // File Server mode (AP or STA)
+        g_web_server.handleClient();
+    }
+
+    yield();
+}
