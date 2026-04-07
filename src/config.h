@@ -15,7 +15,7 @@
 #define LED_PIN             2   // Active LOW
 
 // -- SD Card --
-#define SD_SPI_SPEED        SD_SCK_MHZ(20)
+#define SD_SPI_SPEED        SD_SCK_MHZ(4)  // Low speed for ribbon cable + shared bus
 #define SD_MOUNT_PATH       ""  // SdFat uses relative paths
 
 // -- File Server (AP mode) --
