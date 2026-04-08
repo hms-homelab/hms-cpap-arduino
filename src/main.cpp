@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
+#include <ESP8266mDNS.h>
 #include <ESP8266WebServer.h>
 #include <WiFiManager.h>
 #include <NTPClient.h>
@@ -189,6 +190,10 @@ void setup() {
         Serial.printf("[main] Connected to %s (%s)\n",
                       WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
 
+        if (MDNS.begin("sleeplink")) {
+            Serial.println(F("[main] mDNS hostname: sleeplink.local"));
+        }
+
         g_ntp.begin();
         g_ntp.update();
 
@@ -217,6 +222,7 @@ void setup() {
 // =============================================================================
 void loop() {
     check_boot_button();
+    MDNS.update();
 
     if (g_wifi_connected && g_mode == OP_MODE_CLOUD_PUSH) {
         // Cloud Push mode
