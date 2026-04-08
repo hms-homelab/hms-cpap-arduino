@@ -14,7 +14,7 @@
 #include "http_pusher.h"
 
 // =============================================================================
-// sleeplink-firmware-lite — ESP8285 Dual-Mode CPAP Bridge
+// cpapdash-firmware-lite — ESP8285 Dual-Mode CPAP Bridge
 //
 // Mode 0 (File Server): ezShare-compatible HTTP file server on port 80
 // Mode 1 (Cloud Push):  Sync + chunked EDF upload to SleepLink API
@@ -190,8 +190,8 @@ void setup() {
         Serial.printf("[main] Connected to %s (%s)\n",
                       WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
 
-        if (MDNS.begin("sleeplink")) {
-            Serial.println(F("[main] mDNS hostname: sleeplink.local"));
+        if (MDNS.begin("cpapdash")) {
+            Serial.println(F("[main] mDNS hostname: cpapdash.local"));
         }
 
         g_ntp.begin();
