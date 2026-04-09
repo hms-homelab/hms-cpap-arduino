@@ -133,7 +133,8 @@ static void push_cycle() {
 void setup() {
     Serial.begin(115200);
     delay(500);
-    Serial.printf("\n\n[main] SleepLink Firmware Lite %s\n", APP_VERSION);
+    Serial.printf("\n\n[main] === BOOT t=%lu ===\n", millis());
+    Serial.printf("[main] SleepLink Firmware Lite %s\n", APP_VERSION);
     Serial.printf("[main] Chip: ESP8285, Flash: %uKB, Free heap: %u\n",
                   ESP.getFlashChipRealSize() / 1024, ESP.getFreeHeap());
 
@@ -157,10 +158,19 @@ void setup() {
     Serial.printf("[main] Saved mode: %s\n",
                   g_mode == OP_MODE_CLOUD_PUSH ? "Cloud Push" : "File Server");
 
-    // SD card
+    // SD card — tri-state all SPI pins
+    Serial.printf("[main] [%lu] sd_card_init (tri-state pins)...\n", millis());
     sd_card_init();
+    Serial.printf("[main] [%lu] sd_card_init DONE — pins should be high-Z\n", millis());
+
+    Serial.printf("[main] [%lu] >>> PAUSE 5s — check CPAP SD status NOW <<<\n", millis());
+    for (int i = 5; i > 0; i--) {
+        Serial.printf("[main] [%lu] ...%d\n", millis(), i);
+        delay(1000);
+    }
 
     // WiFiManager setup
+    Serial.printf("[main] [%lu] WiFiManager setup...\n", millis());
     g_wm.addParameter(&g_mode_param);
     g_wm.setSaveConfigCallback(save_config_callback);
     g_wm.setConfigPortalTimeout(WIFI_CONFIG_TIMEOUT);
@@ -184,32 +194,43 @@ void setup() {
              WIFI_AP_NAME, (uint16_t)(ESP.getChipId() & 0xFFFF));
 
     // Try to connect
+    Serial.printf("[main] [%lu] WiFi autoConnect starting...\n", millis());
     g_wifi_connected = g_wm.autoConnect(ap_name);
+    Serial.printf("[main] [%lu] WiFi autoConnect done (connected=%d)\n", millis(), g_wifi_connected);
+
+    Serial.printf("[main] [%lu] >>> PAUSE 3s — check CPAP SD status NOW <<<\n", millis());
+    for (int i = 3; i > 0; i--) {
+        Serial.printf("[main] [%lu] ...%d\n", millis(), i);
+        delay(1000);
+    }
 
     if (g_wifi_connected) {
         Serial.printf("[main] Connected to %s (%s)\n",
                       WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
 
+        Serial.printf("[main] [%lu] mDNS begin...\n", millis());
         if (MDNS.begin("cpapdash")) {
             Serial.println(F("[main] mDNS hostname: cpapdash.local"));
         }
 
+        Serial.printf("[main] [%lu] NTP begin...\n", millis());
         g_ntp.begin();
         g_ntp.update();
+        Serial.printf("[main] [%lu] NTP done\n", millis());
 
         if (g_mode == OP_MODE_CLOUD_PUSH) {
             Serial.println(F("[main] Cloud Push mode"));
             http_pusher_init(g_config.api_url, g_serial, DEVICE_SECRET);
             Serial.printf("[main] Push interval: %ds\n", PUSH_INTERVAL_SEC);
         } else {
-            Serial.println(F("[main] File Server mode (STA)"));
+            Serial.printf("[main] [%lu] File Server mode — starting web server...\n", millis());
             file_server_init(g_web_server);
             g_web_server.begin();
-            Serial.printf("[main] File server at http://%s/\n",
-                          WiFi.localIP().toString().c_str());
+            Serial.printf("[main] [%lu] Web server READY at http://%s/\n",
+                          millis(), WiFi.localIP().toString().c_str());
         }
     } else {
-        Serial.println(F("[main] AP mode — file server on 192.168.4.1"));
+        Serial.printf("[main] [%lu] AP mode — file server on 192.168.4.1\n", millis());
         file_server_init(g_web_server);
         g_web_server.begin();
     }
