@@ -155,12 +155,15 @@ static void handle_download() {
     size_t total = 0;
     int n;
 
-    while ((n = file.read(buf, sizeof(buf))) > 0) {
-        s_server->sendContent_P((const char *)buf, n);
-        total += n;
-        yield();  // Feed watchdog
-    }
+            while ((n = file.read(buf, sizeof(buf))) > 0) {
 
+                s_server->client().write(buf, n);
+
+                total += n;
+
+                yield();  // Feed watchdog
+
+            }
     file.close();
     sd_card_unmount();
 
