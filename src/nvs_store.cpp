@@ -31,7 +31,7 @@ void nvs_store_load(DeviceConfig &cfg) {
     if (cfg.checksum != compute_checksum(cfg)) {
         // Invalid — zero out
         memset(&cfg, 0, sizeof(cfg));
-        strncpy(cfg.hostname, "sleeplink", sizeof(cfg.hostname));
+        strncpy(cfg.hostname, "cpapdash", sizeof(cfg.hostname));
         strncpy(cfg.api_url, DEFAULT_API_URL, sizeof(cfg.api_url));
     }
 }

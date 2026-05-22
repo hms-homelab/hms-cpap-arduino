@@ -1,7 +1,7 @@
 #pragma once
 
 // =============================================================================
-// sleeplink-firmware-lite — ESP8285 Dual-Mode CPAP Bridge
+// hms-cpap-arduino — ESP8285 Dual-Mode CPAP Bridge
 // Port of hms-cpap-fysetc (ESP-IDF) to Arduino
 // =============================================================================
 
@@ -28,7 +28,7 @@
 #define HTTP_TIMEOUT_MS     15000
 #define HTTP_MAX_RETRIES    3
 #define RESP_BUF_SIZE       1024  // Sync response buffer
-#define DEFAULT_API_URL     "https://api.sleeplinkusa.com"
+#define DEFAULT_API_URL     "https://api.cpapdash.com"
 
 // -- Device Identity (baked at compile time) --
 #define DEVICE_SECRET       ""    // Set via build_flags: -DDEVICE_SECRET=\"...\"
@@ -49,10 +49,10 @@
 #define MAX_CHECKPOINTS     4
 
 // -- WiFi --
-#define WIFI_AP_NAME        "SleepLink"  // Will append MAC suffix
+#define WIFI_AP_NAME        "CpapDash"   // Will append MAC suffix
 #define WIFI_CONFIG_TIMEOUT 180          // Captive portal timeout (seconds)
 
 // -- Firmware --
 #ifndef APP_VERSION
-#define APP_VERSION         "1.0.0"
+#define APP_VERSION         "2026.1.1"
 #endif

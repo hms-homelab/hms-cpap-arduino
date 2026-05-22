@@ -198,7 +198,7 @@ static void handle_status() {
 static void handle_root() {
     s_server->send(200, "text/html",
         "<html><body>"
-        "<h2>SleepLink Firmware Lite</h2>"
+        "<h2>CpapDash Firmware Lite</h2>"
         "<p><a href=\"/dir?dir=A:/DATALOG\">Browse DATALOG</a></p>"
         "<p><a href=\"/api/status\">Status</a></p>"
         "</body></html>");

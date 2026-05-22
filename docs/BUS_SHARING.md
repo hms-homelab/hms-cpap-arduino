@@ -113,7 +113,7 @@ Cloud push should only run when the CPAP is idle:
 
 ### For Reliable Concurrent Access
 
-Use the FYSETC SD WiFi Pro or the hms-sleeplink-firmware (ESP32) which has a proper bus arbiter with PCNT-based traffic monitoring and ISR-driven yield. The v2.1 cannot reliably share the bus during active host writes.
+Use the FYSETC SD WiFi Pro or the hms-cpap-fysetc (ESP32) which has a proper bus arbiter with PCNT-based traffic monitoring and ISR-driven yield. The v2.1 cannot reliably share the bus during active host writes.
 
 ## Sources
 

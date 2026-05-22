@@ -2,7 +2,7 @@
 
 ## Overview
 
-hms-cpap-arduino is a port of [hms-cpap-fysetc](https://github.com/hms-homelab/hms-cpap-fysetc) (ESP-IDF, C) to Arduino (C++). This document captures the API translation decisions and gotchas encountered during the port.
+hms-cpap-arduino is a port of [hms-fysetc](https://github.com/hms-homelab/hms-fysetc) (ESP-IDF, C) to Arduino (C++). This document captures the API translation decisions and gotchas encountered during the port.
 
 ## File-by-File Mapping
 

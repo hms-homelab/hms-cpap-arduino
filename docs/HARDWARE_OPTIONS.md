@@ -1,11 +1,11 @@
-# SleepLink Hardware Options
+# CpapDash Hardware Options
 
 Comparison of all hardware approaches for getting CPAP data off the SD card.
 
 ## Option 1: FYSETC SD WiFi Pro ($28)
 
 **Board:** ESP32-PICO-D4, 4 MB flash, 2 MB PSRAM, hardware MUX
-**Firmware:** hms-cpap-fysetc / hms-sleeplink-firmware (ESP-IDF)
+**Firmware:** hms-cpap-fysetc / hms-cpap-fysetc (ESP-IDF)
 **Form factor:** SD card (fits directly in CPAP slot)
 
 | Aspect | Details |
@@ -16,9 +16,9 @@ Comparison of all hardware approaches for getting CPAP data off the SD card.
 | OTA | Yes |
 | CPAP fit | Direct insertion (no ribbon cable) |
 | Power | From CPAP 3.3V rail |
-| Status | Production firmware (hms-sleeplink-firmware), deployed |
+| Status | Production firmware (hms-cpap-fysetc), deployed |
 
-**Best for:** Production SleepLink device. Reliable, fast, fits directly.
+**Best for:** Production CpapDash device. Reliable, fast, fits directly.
 
 ## Option 2: FYSETC SD-WiFi v2.1 ($9)
 
@@ -41,7 +41,7 @@ Comparison of all hardware approaches for getting CPAP data off the SD card.
 ## Option 3: ezShare WiFi SD + ESP32-C3 Bridge ($35-48)
 
 **Board:** ezShare WiFi SD card + separate ESP32-C3 SuperMini
-**Firmware:** sleeplink-push-c3 (ESP-IDF, dual-chip SPI)
+**Firmware:** cpapdash-push-c3 (ESP-IDF, dual-chip SPI)
 **Form factor:** Two devices (ezShare in CPAP, C3 nearby)
 
 | Aspect | Details |
@@ -86,7 +86,7 @@ Comparison of all hardware approaches for getting CPAP data off the SD card.
 
 ## Recommendation
 
-**For SleepLink product:** FYSETC SD WiFi Pro ($28). Direct fit, hardware MUX, HTTPS, OTA. The $19 premium over the v2.1 buys real reliability and a better user experience.
+**For CpapDash product:** FYSETC SD WiFi Pro ($28). Direct fit, hardware MUX, HTTPS, OTA. The $19 premium over the v2.1 buys real reliability and a better user experience.
 
 **For budget/DIY users:** FYSETC SD-WiFi v2.1 ($9) with hms-cpap-arduino. Works for file serving when CPAP is off. Requires ribbon cable and has limitations.
 

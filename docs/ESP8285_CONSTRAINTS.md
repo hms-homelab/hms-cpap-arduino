@@ -40,7 +40,7 @@
 
 BearSSL TLS handshake requires ~15 KB of contiguous heap. When combined with the WiFi stack and application buffers, the ESP8285 crashes during HTTPS POST of file chunks.
 
-**Observed:** Exception 2 (illegal instruction) when attempting `https://api.sleeplinkusa.com` push with 4 KB chunk + BearSSL.
+**Observed:** Exception 2 (illegal instruction) when attempting `https://api.cpapdash.com` push with 4 KB chunk + BearSSL.
 
 **Workaround options:**
 - Use HTTP (not HTTPS) for local/dev push endpoints

@@ -93,7 +93,7 @@ Added timestamped serial prints and pauses at each boot stage:
 
 ## Hardware options if software can't fix it
 
-See SLEEPLINK_HARDWARE_OPTIONS.md. If the v2.1 can't coexist with the
+See HARDWARE_OPTIONS.md. If the v2.1 can't coexist with the
 CPAP electrically, the cheapest path is the SD-WiFi Pro (~$20 more) which
 has the MUX built in. Adding an external MUX to the v2.1 defeats the
 cost advantage.

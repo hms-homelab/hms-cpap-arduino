@@ -14,10 +14,10 @@
 #include "http_pusher.h"
 
 // =============================================================================
-// cpapdash-firmware-lite — ESP8285 Dual-Mode CPAP Bridge
+// hms-cpap-arduino — ESP8285 Dual-Mode CPAP Bridge
 //
 // Mode 0 (File Server): ezShare-compatible HTTP file server on port 80
-// Mode 1 (Cloud Push):  Sync + chunked EDF upload to SleepLink API
+// Mode 1 (Cloud Push):  Sync + chunked EDF upload to CpapDash API
 // =============================================================================
 
 static DeviceConfig g_config;
@@ -26,14 +26,10 @@ static WiFiManager g_wm;
 static WiFiUDP g_ntp_udp;
 static NTPClient g_ntp(g_ntp_udp, "pool.ntp.org", 0, 60000);
 
-// Mode selection via WiFiManager custom HTML radio buttons
-static WiFiManagerParameter g_mode_param(
-    "<br><hr><h3 style='color:#667EEA;'>Operating Mode</h3>"
-    "<label style='display:flex;align-items:center;gap:8px;margin:8px 0;cursor:pointer;'>"
-    "<input type='radio' name='opmode' value='0' checked> File Server (LAN polling)</label>"
-    "<label style='display:flex;align-items:center;gap:8px;margin:8px 0;cursor:pointer;'>"
-    "<input type='radio' name='opmode' value='1'> Cloud Push (autonomous upload)</label>"
-);
+// Mode is hardcoded to File Server. Cloud Push is not viable on ESP8285:
+// BearSSL handshake + WiFi stack exhausts the ~40KB free heap during chunked
+// HTTPS uploads. See docs/ESP8285_CONSTRAINTS.md.
+// (Captive portal mode picker removed.)
 
 static unsigned long g_last_push = 0;
 static uint8_t g_mode = OP_MODE_FILE_SERVER;
@@ -134,12 +130,12 @@ void setup() {
     Serial.begin(115200);
     delay(500);
     Serial.printf("\n\n[main] === BOOT t=%lu ===\n", millis());
-    Serial.printf("[main] SleepLink Firmware Lite %s\n", APP_VERSION);
+    Serial.printf("[main] CpapDash Firmware Lite %s\n", APP_VERSION);
     Serial.printf("[main] Chip: ESP8285, Flash: %uKB, Free heap: %u\n",
                   ESP.getFlashChipRealSize() / 1024, ESP.getFreeHeap());
 
     // Generate serial from chip ID
-    snprintf(g_serial, sizeof(g_serial), "SL-%08X", ESP.getChipId());
+    snprintf(g_serial, sizeof(g_serial), "CD-%08X", ESP.getChipId());
     Serial.printf("[main] Device serial: %s\n", g_serial);
 
     // LED
@@ -169,24 +165,14 @@ void setup() {
         delay(1000);
     }
 
-    // WiFiManager setup
+    // WiFiManager setup — File Server mode only; no mode picker
     Serial.printf("[main] [%lu] WiFiManager setup...\n", millis());
-    g_wm.addParameter(&g_mode_param);
     g_wm.setSaveConfigCallback(save_config_callback);
     g_wm.setConfigPortalTimeout(WIFI_CONFIG_TIMEOUT);
     g_wm.setDarkMode(true);
-
-    // Save mode from portal form on save
-    g_wm.setSaveParamsCallback([]() {
-        // Check if mode radio was submitted
-        if (g_wm.server->hasArg("opmode")) {
-            uint8_t mode = g_wm.server->arg("opmode").toInt();
-            nvs_store_set_mode(mode);
-            g_mode = mode;
-            Serial.printf("[main] Mode saved: %s\n",
-                          mode == OP_MODE_CLOUD_PUSH ? "Cloud Push" : "File Server");
-        }
-    });
+    // Force File Server mode in NVS on every boot
+    nvs_store_set_mode(OP_MODE_FILE_SERVER);
+    g_mode = OP_MODE_FILE_SERVER;
 
     // Generate AP name with chip ID suffix
     char ap_name[32];
