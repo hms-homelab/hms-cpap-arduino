@@ -1,6 +1,6 @@
 # hms-cpap-arduino
 
-> **EXPERIMENTAL** -- This board is a $9 hack and the ESP8285 is right at the edge of what's possible. File Server mode is reliable; cloud push is not. See [docs/ESP8285_CONSTRAINTS.md](docs/ESP8285_CONSTRAINTS.md).
+> **EXPERIMENTAL** -- This board is a ESP8285 is right at the edge of what's possible. File Server mode is reliable; cloud push is not. See [docs/ESP8285_CONSTRAINTS.md](docs/ESP8285_CONSTRAINTS.md).
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform: Arduino](https://img.shields.io/badge/Platform-Arduino-00979D.svg?logo=arduino)](https://www.arduino.cc/)
