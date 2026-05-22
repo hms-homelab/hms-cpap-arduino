@@ -59,49 +59,85 @@ Path separators use `%5C` (backslash) in query parameters, matching real ez Shar
 
 See [docs/HARDWARE.md](docs/HARDWARE.md) for pinout and detailed board notes, and [docs/HARDWARE_OPTIONS.md](docs/HARDWARE_OPTIONS.md) for a comparison with other CPAP-bridge hardware.
 
-## Quick Start
+## Is this the right firmware for my board?
 
-### 1. Install PlatformIO
+FYSETC sells two SD-WiFi cards that look similar but are very different. This firmware is for the **cheaper one with a USB-C port and a toggle switch**:
+
+| Product | MCU | Toggle switch | Use this firmware? |
+|---------|-----|---------------|--------------------|
+| **FYSETC SD-WiFi v2.1** (~$9, card-reader/upload toggle, USB-C) | ESP8285 | yes | ✅ Yes — this repo |
+| **FYSETC SD-WiFi Pro** (~$28, dedicated dongle board with ESP32) | ESP32 | no | ❌ No — use [hms-fysetc](https://github.com/hms-homelab/hms-fysetc) (ESP-IDF) |
+| **ezShare WiFi SD** (real ezShare card) | n/a | n/a | ❌ No — works out of the box with [hms-cpap](https://github.com/hms-homelab/hms-cpap) |
+
+If your card has a small black toggle switch on its edge and a USB-C port, you're in the right place.
+
+## Quick Start (pre-built firmware)
+
+The easiest path. No build tools, no compiler — just flash the released `firmware.bin` and you're done.
+
+### 1. Download the firmware
+
+Grab `firmware.bin` from the latest [release](https://github.com/hms-homelab/hms-cpap-arduino/releases).
+
+### 2. Install the CH340 USB driver (macOS / Windows only)
+
+The board's USB-to-serial chip is a CH340E. macOS Sonoma+ and recent Windows have the driver built-in. If your computer doesn't see the device after plugging it in, install from:
+
+- macOS: <https://www.wch.cn/downloads/CH341SER_MAC_ZIP.html>
+- Windows: <https://www.wch.cn/downloads/CH341SER_EXE.html>
+- Linux: works out of the box (`/dev/ttyUSB0` or `/dev/ttyACM0`)
+
+### 3. Put the board in flash mode
+
+1. **Insert your micro SD card** into the FYSETC board (formatted FAT32, up to 32 GB)
+2. Move the small **toggle switch** on the board edge to **USB2UART** (the position closer to the USB-C port)
+3. **Hold the FLASH button**, plug in USB-C, release the button after 2 seconds — the LED stays off, indicating bootloader mode
+
+### 4. Flash
+
+The simplest option is the **browser-based** [ESP Web Flasher](https://espressif.github.io/esptool-js/) (works on Chrome/Edge):
+
+1. Open <https://espressif.github.io/esptool-js/>
+2. Click **Connect** and pick the CH340 serial port
+3. Click **Add File**, select the `firmware.bin` you downloaded, set address to `0x0`
+4. Click **Program**
+
+Or use [`esptool`](https://github.com/espressif/esptool) from the command line:
+
+```bash
+pip install esptool
+esptool.py --port /dev/cu.usbserial-XXXX --baud 460800 --chip esp8266 \
+    write_flash 0x0 firmware.bin
+```
+
+(Port name: macOS `/dev/cu.usbserial-*`, Linux `/dev/ttyUSB0`, Windows `COM3` or similar.)
+
+### 5. Switch back to runtime mode
+
+Unplug USB, **move the toggle switch back to SD/Upload** (away from USB-C), and re-plug. The LED blinks briefly — the board is now running.
+
+## Build from source (optional)
+
+Only if you want to modify the firmware.
 
 ```bash
 pip install platformio
-```
-
-### 2. Build
-
-```bash
 git clone https://github.com/hms-homelab/hms-cpap-arduino.git
 cd hms-cpap-arduino
-platformio run
+platformio run                       # builds .pio/build/cpapdash/firmware.bin
+platformio run --target upload       # flashes (board must be in flash mode)
 ```
 
-### 3. Flash
+## First-Time Setup
 
-1. Set the board toggle switch to **USB2UART**
-2. Hold the **FLASH** button, plug in USB, release after 2 seconds
-3. Flash:
-
-```bash
-platformio run --target upload
-```
-
-Or via esptool directly:
-
-```bash
-esptool.py --port /dev/ttyUSB1 --baud 460800 --chip esp8266 \
-    write_flash 0x0 .pio/build/cpapdash/firmware.bin
-```
-
-### 4. First-Time Setup
-
-1. After flashing, the board creates a `CpapDash-XXXX` WiFi network
-2. Connect your phone to it
-3. A captive portal opens — select your home WiFi network, enter the password
-4. Save — device reboots and connects to your network
+1. Insert the board into your CPAP's SD slot (or any USB power source for testing)
+2. On your phone, connect to the `CpapDash-XXXX` WiFi network (where `XXXX` is the last 4 chars of the device's chip ID)
+3. A captive portal opens automatically — select your home WiFi network, enter the password
+4. Save — device reboots and connects to your home network
 
 Credentials persist in EEPROM. To re-enter setup, hold the **FLASH** button for 5 seconds (LED blinks rapidly, WiFi credentials and checkpoints are cleared, device reboots into captive portal mode).
 
-### 5. Use It
+## Usage
 
 ```bash
 # Browse DATALOG
